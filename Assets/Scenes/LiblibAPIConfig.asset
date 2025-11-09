@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56d14e8a80abdc443adf0f4519f09ada, type: 3}
+  m_Name: LiblibAPIConfig
+  m_EditorClassIdentifier: 
+  accessKey: ybgsJ3-CJYtiJJptA70lWg
+  secretKey: c1Z1wIj15LvZgSUjf4Q0raIlFU5TXYD2
+  apiBaseUrl: https://openapi.liblibai.cloud
+  templateUuid: 5d7e67009b344550bc1aa6ccbfa1d7f4
+  defaultWidth: 512
+  defaultHeight: 512
+  maxRetryCount: 100
+  queryInterval: 5
