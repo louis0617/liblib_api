@@ -21,8 +21,8 @@ public class LiblibAPILoraConfig : ScriptableObject
     [Tooltip("模板UUID")]
     public string templateUuid = "e10adc3949ba59abbe56e057f20f883e";
     
-    [Tooltip("默认底模 modelVersionUUID（必填）")]
-    public string defaultCheckPointId = "0ea388c7eb854be3ba3c6f65aac6bfd3";
+    [Tooltip("默认底模 modelVersionUUID（选填，如果需要指定特定的Checkpoint模型）\n从模型页面URL中获取versionUuid，例如：https://www.liblib.art/modelinfo/xxx?versionUuid=412b427ddb674b4dbab9e5abd5ae6057")]
+    public string defaultCheckPointId = "";
     
     [Tooltip("默认提示词")]
     [TextArea(3, 5)]
@@ -68,27 +68,6 @@ public class LiblibAPILoraConfig : ScriptableObject
     [Header("默认LoRA设置")]
     [Tooltip("默认LoRA模型列表（最多5个）")]
     public DefaultLoraModel[] defaultLoraModels = new DefaultLoraModel[0];
-    
-    [Header("默认高分辨率修复")]
-    [Tooltip("默认启用高分辨率修复")]
-    public bool defaultEnableHiResFix = false;
-    
-    [Tooltip("默认高分辨率修复的重绘步数")]
-    [Range(1, 100)]
-    public int defaultHiresSteps = 20;
-    
-    [Tooltip("默认高分辨率修复的重绘幅度")]
-    [Range(0f, 1f)]
-    public float defaultHiresDenoisingStrength = 0.75f;
-    
-    [Tooltip("默认放大算法模型枚举")]
-    public int defaultUpscaler = 10;
-    
-    [Tooltip("默认放大后的宽度")]
-    public int defaultResizedWidth = 1024;
-    
-    [Tooltip("默认放大后的高度")]
-    public int defaultResizedHeight = 1536;
     
     [Header("轮询设置")]
     [Tooltip("查询结果的最大重试次数")]

@@ -42,7 +42,7 @@
    - 搜索并添加 `LiblibAPILora` 组件
 
 3. **配置组件**：
-   - 将之前创建的 `LiblibAPIConfig` 资源拖拽到 **API Config** 字段
+   - 将之前创建的 `LiblibAPILoraConfig` 资源拖拽到 **API Config** 字段
    - 填写以下参数：
      - **Check Point Id**: 底模的 `versionUuid`（必填）
      - **Prompt**: 提示词（英文，不超过2000字符）
@@ -60,10 +60,17 @@
      - **Seed**: 随机种子（-1表示随机）
      - **Restore Faces**: 面部修复（0=关闭，1=开启）
 
-4. **高分辨率修复（可选）**：
-   - 勾选 **Enable Hi Res Fix**
-   - 设置相关参数：
-     - **Hires Steps**: 重绘步数
-     - **Hires Denoising Strength**: 重绘幅度（0.0-1.0）
-     - **Upscaler**: 放大算法模型枚举
-     - **Resized Width/Height**: 放大后的尺寸
+
+
+LiblibAPILoraConfig创建配置资源：
+右键点击 Project 窗口
+选择 Create > Liblib > LoRA API Config
+命名为 LiblibAPILoraConfig
+配置参数：
+填写 AccessKey 和 SecretKey
+设置默认底模ID (defaultCheckPointId)
+配置默认LoRA模型列表
+设置其他默认参数
+在场景中使用：
+将 LiblibAPILoraConfig 资源拖到 LiblibAPILora 组件的 Lora Config 字段
+组件会自动从配置中读取默认值

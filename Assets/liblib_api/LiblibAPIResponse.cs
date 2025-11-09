@@ -215,13 +215,14 @@ namespace LiblibAPI
     }
     
     /// <summary>
-    /// LoRA生成参数
+    /// LoRA生成参数（按照官方文档F.1文生图 - 自定义完整参数示例）
     /// </summary>
     [Serializable]
     public class GenerateParamsLora
     {
         /// <summary>
-        /// 底模 modelVersionUUID
+        /// 底模 modelVersionUUID（选填，如果需要指定特定的Checkpoint模型）
+        /// 从模型页面URL中获取versionUuid，例如：https://www.liblib.art/modelinfo/xxx?versionUuid=412b427ddb674b4dbab9e5abd5ae6057
         /// </summary>
         public string checkPointId;
         
@@ -231,24 +232,9 @@ namespace LiblibAPI
         public string prompt;
         
         /// <summary>
-        /// 负面提示词（选填）
-        /// </summary>
-        public string negativePrompt;
-        
-        /// <summary>
-        /// 采样方法
-        /// </summary>
-        public int sampler;
-        
-        /// <summary>
         /// 采样步数
         /// </summary>
         public int steps;
-        
-        /// <summary>
-        /// 提示词引导系数
-        /// </summary>
-        public float cfgScale;
         
         /// <summary>
         /// 宽度
@@ -266,11 +252,6 @@ namespace LiblibAPI
         public int imgCount;
         
         /// <summary>
-        /// 随机种子生成器 0 cpu，1 Gpu
-        /// </summary>
-        public int randnSource;
-        
-        /// <summary>
         /// 随机种子值，-1表示随机
         /// </summary>
         public long seed;
@@ -281,14 +262,9 @@ namespace LiblibAPI
         public int restoreFaces;
         
         /// <summary>
-        /// LoRA添加，最多5个
+        /// LoRA添加，最多5个（不添加lora时请删除此结构体）
         /// </summary>
         public AdditionalNetwork[] additionalNetwork;
-        
-        /// <summary>
-        /// 高分辨率修复
-        /// </summary>
-        public HiResFixInfo hiResFixInfo;
     }
     
     /// <summary>
@@ -306,38 +282,6 @@ namespace LiblibAPI
         /// LoRA权重
         /// </summary>
         public float weight;
-    }
-    
-    /// <summary>
-    /// 高分辨率修复信息
-    /// </summary>
-    [Serializable]
-    public class HiResFixInfo
-    {
-        /// <summary>
-        /// 高分辨率修复的重绘步数
-        /// </summary>
-        public int hiresSteps;
-        
-        /// <summary>
-        /// 高分辨率修复的重绘幅度
-        /// </summary>
-        public float hiresDenoisingStrength;
-        
-        /// <summary>
-        /// 放大算法模型枚举
-        /// </summary>
-        public int upscaler;
-        
-        /// <summary>
-        /// 放大后的宽度
-        /// </summary>
-        public int resizedWidth;
-        
-        /// <summary>
-        /// 放大后的高度
-        /// </summary>
-        public int resizedHeight;
     }
 }
 

@@ -18,7 +18,7 @@ public class LiblibAPILora : MonoBehaviour
     public LiblibAPIConfig apiConfig;
     
     [Header("生成设置")]
-    [Tooltip("底模 modelVersionUUID（必填）")]
+    [Tooltip("底模 modelVersionUUID（选填，如果需要指定特定的Checkpoint模型）\n从模型页面URL中获取versionUuid，例如：https://www.liblib.art/modelinfo/xxx?versionUuid=412b427ddb674b4dbab9e5abd5ae6057")]
     public string checkPointId = "";
     
     [Tooltip("提示词（英文，不超过2000字符）")]
@@ -65,27 +65,6 @@ public class LiblibAPILora : MonoBehaviour
     [Tooltip("面部修复，0=关闭，1=开启")]
     [Range(0, 1)]
     public int restoreFaces = 0;
-    
-    [Header("高分辨率修复（可选）")]
-    [Tooltip("启用高分辨率修复")]
-    public bool enableHiResFix = false;
-    
-    [Tooltip("高分辨率修复的重绘步数")]
-    [Range(1, 100)]
-    public int hiresSteps = 20;
-    
-    [Tooltip("高分辨率修复的重绘幅度")]
-    [Range(0f, 1f)]
-    public float hiresDenoisingStrength = 0.75f;
-    
-    [Tooltip("放大算法模型枚举")]
-    public int upscaler = 10;
-    
-    [Tooltip("放大后的宽度")]
-    public int resizedWidth = 1024;
-    
-    [Tooltip("放大后的高度")]
-    public int resizedHeight = 1536;
     
     [Header("调试选项")]
     [Tooltip("启用调试日志")]
@@ -153,7 +132,7 @@ public class LiblibAPILora : MonoBehaviour
         if (loraConfig != null && loraConfig.IsValid())
         {
             // 如果Inspector中的值为空或默认值，则从配置中读取
-            if (string.IsNullOrEmpty(checkPointId))
+            if (string.IsNullOrEmpty(checkPointId) && !string.IsNullOrEmpty(loraConfig.defaultCheckPointId))
             {
                 checkPointId = loraConfig.defaultCheckPointId;
             }
@@ -226,9 +205,7 @@ public class LiblibAPILora : MonoBehaviour
     public void Generate()
     {
         GenerateImageWithLora(
-            checkPointId,
             prompt,
-            negativePrompt,
             loraModels,
             templateUuid: null
         );
@@ -237,24 +214,14 @@ public class LiblibAPILora : MonoBehaviour
     /// <summary>
     /// 生成图片（带LoRA）
     /// </summary>
-    /// <param name="checkPointId">底模 modelVersionUUID（必填）</param>
     /// <param name="prompt">提示词（选填）</param>
-    /// <param name="negativePrompt">负面提示词（选填）</param>
     /// <param name="loraModels">LoRA模型列表（最多5个）</param>
     /// <param name="templateUuid">模板UUID，如果为空则使用配置中的默认值</param>
     public void GenerateImageWithLora(
-        string checkPointId,
         string prompt = null,
-        string negativePrompt = null,
         LoraModel[] loraModels = null,
         string templateUuid = null)
     {
-        if (string.IsNullOrEmpty(checkPointId))
-        {
-            OnError?.Invoke("checkPointId不能为空，请设置底模 modelVersionUUID");
-            return;
-        }
-        
         // 获取当前使用的配置
         LiblibAPIConfig activeConfig = GetActiveConfig();
         if (activeConfig == null || !activeConfig.IsValid())
@@ -281,14 +248,11 @@ public class LiblibAPILora : MonoBehaviour
         
         // 使用Inspector中的参数作为默认值
         string finalPrompt = prompt ?? this.prompt;
-        string finalNegativePrompt = negativePrompt ?? this.negativePrompt;
         LoraModel[] finalLoraModels = loraModels ?? this.loraModels;
         
         // 开始新的生成任务
         currentTaskCoroutine = StartCoroutine(GenerateImageLoraCoroutine(
-            checkPointId,
             finalPrompt,
-            finalNegativePrompt,
             finalLoraModels,
             templateId
         ));
@@ -298,18 +262,14 @@ public class LiblibAPILora : MonoBehaviour
     /// 生成图片协程（带LoRA）
     /// </summary>
     private IEnumerator GenerateImageLoraCoroutine(
-        string checkPointId,
         string prompt,
-        string negativePrompt,
         LoraModel[] loraModels,
         string templateUuid)
     {
         // 1. 提交文生图任务
         string generateUuid = null;
         yield return StartCoroutine(SubmitText2ImageLoraTask(
-            checkPointId,
             prompt,
-            negativePrompt,
             loraModels,
             templateUuid,
             (uuid) => {
@@ -336,9 +296,7 @@ public class LiblibAPILora : MonoBehaviour
     /// 提交LoRA文生图任务
     /// </summary>
     private IEnumerator SubmitText2ImageLoraTask(
-        string checkPointId,
         string prompt,
-        string negativePrompt,
         LoraModel[] loraModels,
         string templateUuid,
         Action<string> onSuccess)
@@ -376,40 +334,21 @@ public class LiblibAPILora : MonoBehaviour
             }
         }
         
-        // 构建高分辨率修复信息
-        HiResFixInfo hiResFixInfo = null;
-        if (enableHiResFix)
-        {
-            hiResFixInfo = new HiResFixInfo
-            {
-                hiresSteps = this.hiresSteps,
-                hiresDenoisingStrength = this.hiresDenoisingStrength,
-                upscaler = this.upscaler,
-                resizedWidth = this.resizedWidth,
-                resizedHeight = this.resizedHeight
-            };
-        }
-        
-        // 构建请求体
+        // 构建请求体（按照官方文档F.1文生图 - 自定义完整参数示例）
         Text2ImageLoraRequest request = new Text2ImageLoraRequest
         {
             templateUuid = templateUuid,
             generateParams = new GenerateParamsLora
             {
-                checkPointId = checkPointId,
+                checkPointId = !string.IsNullOrEmpty(this.checkPointId) ? this.checkPointId : null,
                 prompt = prompt,
-                negativePrompt = negativePrompt,
-                sampler = this.sampler,
                 steps = this.steps,
-                cfgScale = this.cfgScale,
                 width = this.width,
                 height = this.height,
                 imgCount = this.imgCount,
-                randnSource = this.randnSource,
                 seed = this.seed,
                 restoreFaces = this.restoreFaces,
-                additionalNetwork = additionalNetwork,
-                hiResFixInfo = hiResFixInfo
+                additionalNetwork = additionalNetwork
             }
         };
         
@@ -417,7 +356,11 @@ public class LiblibAPILora : MonoBehaviour
         
         if (enableDebugLog)
         {
-            Debug.Log($"[LiblibAPILora] 提交LoRA文生图任务 - CheckPointId: {checkPointId}, TemplateUUID: {templateUuid}");
+            Debug.Log($"[LiblibAPILora] 提交LoRA文生图任务 - TemplateUUID: {templateUuid}");
+            if (!string.IsNullOrEmpty(this.checkPointId))
+            {
+                Debug.Log($"[LiblibAPILora] CheckPointId: {this.checkPointId}");
+            }
             Debug.Log($"[LiblibAPILora] Prompt: {prompt}");
             Debug.Log($"[LiblibAPILora] LoRA数量: {(additionalNetwork != null ? additionalNetwork.Length : 0)}");
             Debug.Log($"[LiblibAPILora] 请求体: {jsonBody}");
@@ -626,6 +569,22 @@ public class LiblibAPILora : MonoBehaviour
                             Debug.Log($"  HasImages: {hasImages} (Count: {(response.data.images != null ? response.data.images.Length : 0)})");
                             Debug.Log($"  HasImageUrl: {hasImageUrl}");
                             Debug.Log($"  IsCompleted: {isCompleted}");
+                            
+                            // 输出完整的响应数据以便调试
+                            if (response.data.images != null && response.data.images.Length > 0)
+                            {
+                                for (int i = 0; i < response.data.images.Length; i++)
+                                {
+                                    Debug.Log($"  图片[{i}]: imageUrl={response.data.images[i].imageUrl}, seed={response.data.images[i].seed}");
+                                }
+                            }
+                            if (!string.IsNullOrEmpty(response.data.imageUrl))
+                            {
+                                Debug.Log($"  图片URL (直接字段): {response.data.imageUrl}");
+                            }
+                            
+                            // 输出完整响应JSON以便调试
+                            Debug.Log($"[LiblibAPILora] 完整响应JSON: {responseText}");
                         }
                         
                         // 如果任务完成（有图片数据或状态为完成）
@@ -701,7 +660,6 @@ public class LiblibAPILora : MonoBehaviour
         }
         
         // 达到最大重试次数
-        LiblibAPIConfig activeConfig = GetActiveConfig();
         OnError?.Invoke($"查询超时：已达到最大重试次数 ({activeConfig.maxRetryCount})");
     }
     

@@ -15,9 +15,6 @@ public class LiblibAPILoraExample : MonoBehaviour
     [Tooltip("输入负面提示词的输入框")]
     public InputField negativePromptInputField;
     
-    [Tooltip("输入底模ID的输入框")]
-    public InputField checkPointIdInputField;
-    
     [Tooltip("显示生成状态的文本")]
     public Text statusText;
     
@@ -86,39 +83,22 @@ public class LiblibAPILoraExample : MonoBehaviour
     /// <summary>
     /// 使用自定义参数生成图片
     /// </summary>
-    /// <param name="checkPointId">底模 modelVersionUUID（必填）</param>
     /// <param name="prompt">提示词</param>
-    /// <param name="negativePrompt">负面提示词</param>
-    public void GenerateImageWithParams(string checkPointId, string prompt, string negativePrompt = null)
+    public void GenerateImageWithParams(string prompt)
     {
-        if (string.IsNullOrEmpty(checkPointId))
-        {
-            Debug.LogWarning("[LiblibAPILoraExample] checkPointId不能为空");
-            UpdateStatus("错误：checkPointId不能为空");
-            return;
-        }
-        
         UpdateStatus("正在提交生成任务...");
         
         // 从输入框获取参数（如果提供了）
         string finalPrompt = prompt;
-        string finalNegativePrompt = negativePrompt;
         
         if (promptInputField != null && !string.IsNullOrEmpty(promptInputField.text))
         {
             finalPrompt = promptInputField.text;
         }
         
-        if (negativePromptInputField != null && !string.IsNullOrEmpty(negativePromptInputField.text))
-        {
-            finalNegativePrompt = negativePromptInputField.text;
-        }
-        
         // 调用API生成图片
         loraClient.GenerateImageWithLora(
-            checkPointId: checkPointId,
             prompt: finalPrompt,
-            negativePrompt: finalNegativePrompt,
             loraModels: null, // 使用Inspector中配置的LoRA模型
             templateUuid: null // 使用配置中的默认模板
         );
@@ -130,30 +110,11 @@ public class LiblibAPILoraExample : MonoBehaviour
     public void GenerateImageWithCustomLora()
     {
         // 从输入框获取参数
-        string checkPointId = "";
         string prompt = "";
-        string negativePrompt = "";
-        
-        if (checkPointIdInputField != null)
-        {
-            checkPointId = checkPointIdInputField.text;
-        }
         
         if (promptInputField != null)
         {
             prompt = promptInputField.text;
-        }
-        
-        if (negativePromptInputField != null)
-        {
-            negativePrompt = negativePromptInputField.text;
-        }
-        
-        if (string.IsNullOrEmpty(checkPointId))
-        {
-            Debug.LogWarning("[LiblibAPILoraExample] checkPointId不能为空");
-            UpdateStatus("错误：请先输入底模ID");
-            return;
         }
         
         // 创建自定义LoRA模型列表（示例：最多5个）
@@ -175,9 +136,7 @@ public class LiblibAPILoraExample : MonoBehaviour
         
         // 调用API生成图片
         loraClient.GenerateImageWithLora(
-            checkPointId: checkPointId,
             prompt: prompt,
-            negativePrompt: negativePrompt,
             loraModels: customLoraModels,
             templateUuid: null
         );
@@ -195,22 +154,35 @@ public class LiblibAPILoraExample : MonoBehaviour
         
         if (response.data != null)
         {
+            // 输出调试信息
+            Debug.Log($"[LiblibAPILoraExample] 响应数据:");
+            Debug.Log($"  images数组: {(response.data.images != null ? $"存在，长度={response.data.images.Length}" : "null")}");
+            Debug.Log($"  imageUrl字段: {(string.IsNullOrEmpty(response.data.imageUrl) ? "空" : response.data.imageUrl)}");
+            
             // 优先从images数组获取（images是对象数组，需要访问imageUrl属性）
-            if (response.data.images != null && response.data.images.Length > 0 && 
-                !string.IsNullOrEmpty(response.data.images[0].imageUrl))
+            if (response.data.images != null && response.data.images.Length > 0)
             {
-                imageUrl = response.data.images[0].imageUrl;
+                Debug.Log($"[LiblibAPILoraExample] 检查images[0]: imageUrl={(response.data.images[0] != null ? response.data.images[0].imageUrl : "null")}");
+                if (!string.IsNullOrEmpty(response.data.images[0].imageUrl))
+                {
+                    imageUrl = response.data.images[0].imageUrl;
+                }
             }
             // 如果没有images数组，尝试从imageUrl字段获取
-            else if (!string.IsNullOrEmpty(response.data.imageUrl))
+            if (string.IsNullOrEmpty(imageUrl) && !string.IsNullOrEmpty(response.data.imageUrl))
             {
                 imageUrl = response.data.imageUrl;
             }
+        }
+        else
+        {
+            Debug.LogError("[LiblibAPILoraExample] response.data 为 null");
         }
         
         if (string.IsNullOrEmpty(imageUrl))
         {
             Debug.LogError("[LiblibAPILoraExample] 响应中未找到图片URL");
+            Debug.LogError($"[LiblibAPILoraExample] 完整响应: {JsonUtility.ToJson(response, true)}");
             UpdateStatus("错误：响应中未找到图片URL");
             return;
         }

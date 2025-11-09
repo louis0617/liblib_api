@@ -525,6 +525,87 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1 &753276894
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 753276895}
+  - component: {fileID: 753276897}
+  - component: {fileID: 753276896}
+  m_Layer: 0
+  m_Name: liblibAPILoraManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &753276895
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753276894}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 460.6734, y: 157.69972, z: -4.9103928}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &753276896
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753276894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccb7f8de2c21d714eb985c280ca0401c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  loraConfig: {fileID: 11400000, guid: 6ba2a172e3c0a7c43b5eeddf47840c23, type: 2}
+  apiConfig: {fileID: 0}
+  checkPointId: 
+  prompt: A bianyishuiguo is at the top of the bianyizhiwu, flowers and leaves grow
+    around the middle part of the bianyizhiwu, white background
+  negativePrompt: 
+  loraModels:
+  - modelId: da520c0d4a2f4f52a2f09304d8a4d431
+    weight: 0.8
+  sampler: 15
+  steps: 30
+  cfgScale: 3.5
+  width: 1024
+  height: 1024
+  imgCount: 1
+  randnSource: 0
+  seed: -1
+  restoreFaces: 0
+  enableDebugLog: 1
+--- !u!114 &753276897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753276894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c60510de1292444787dfd6c93c036ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  promptInputField: {fileID: 0}
+  negativePromptInputField: {fileID: 0}
+  statusText: {fileID: 0}
+  imageDisplay: {fileID: 527425609}
+  loraClient: {fileID: 753276896}
 --- !u!1 &925503809
 GameObject:
   m_ObjectHideFlags: 0
@@ -541,7 +622,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &925503810
 Transform:
   m_ObjectHideFlags: 0
@@ -570,7 +651,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   apiClient: {fileID: 0}
-  generateUuid: bf55969bdf0d4b4ea1076bd2c855b666
+  generateUuid: 026408eab5e44913ad255b5495dcac25
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0
@@ -1016,7 +1097,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1793098273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1147,8 +1228,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1793098273}
-        m_TargetAssemblyTypeName: LiblibAPIClient, Assembly-CSharp
+      - m_Target: {fileID: 753276896}
+        m_TargetAssemblyTypeName: LiblibAPILora, Assembly-CSharp
         m_MethodName: Generate
         m_Mode: 1
         m_Arguments:
@@ -1207,3 +1288,4 @@ SceneRoots:
   - {fileID: 296709025}
   - {fileID: 1312208141}
   - {fileID: 925503810}
+  - {fileID: 753276895}

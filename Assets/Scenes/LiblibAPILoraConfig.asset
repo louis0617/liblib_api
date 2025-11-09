@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7f8bff596d220e499fafe15a15997b5, type: 3}
+  m_Name: LiblibAPILoraConfig
+  m_EditorClassIdentifier: 
+  accessKey: ybgsJ3-CJYtiJJptA70lWg
+  secretKey: c1Z1wIj15LvZgSUjf4Q0raIlFU5TXYD2
+  apiBaseUrl: https://openapi.liblibai.cloud
+  templateUuid: 6f7c4652458d4802969f8d089cf5b91f
+  defaultCheckPointId: 412b427ddb674b4dbab9e5abd5ae6057
+  defaultPrompt: A bianyishuiguo is at the top of the bianyizhiwu, flowers and leaves
+    grow around the middle part of the bianyizhiwu, white background
+  defaultNegativePrompt: 
+  defaultSampler: 15
+  defaultSteps: 30
+  defaultCfgScale: 3.5
+  defaultWidth: 1024
+  defaultHeight: 1024
+  defaultImgCount: 1
+  defaultRandnSource: 0
+  defaultSeed: -1
+  defaultRestoreFaces: 0
+  defaultLoraModels:
+  - modelId: 5067cd8e466a4defbd6734ab868925d1
+    weight: 0.8
+  maxRetryCount: 60
+  queryInterval: 2
