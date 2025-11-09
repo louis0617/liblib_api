@@ -1,7 +1,10 @@
 using System;
 using System.Collections;
+using System.IO;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 using LiblibAPI;
 
 /// <summary>
@@ -70,6 +73,21 @@ public class LiblibAPILora : MonoBehaviour
     [Tooltip("启用调试日志")]
     public bool enableDebugLog = true;
     
+    [Header("按钮设置")]
+    [Tooltip("按钮配置列表，每个按钮可以配置使用不同数量的LoRA模型")]
+    public ButtonConfig[] buttonConfigs = new ButtonConfig[0];
+    
+    [Header("图片保存设置")]
+    [Tooltip("是否自动保存生成的图片到本地文件夹")]
+    public bool autoSaveImages = true;
+    
+    [Tooltip("保存图片的文件夹路径（相对于项目根目录，例如：GeneratedImages）")]
+    public string saveFolderPath = "GeneratedImages";
+    
+    [Tooltip("文件名格式已固定为：{buttonName}_{timestamp}.png\n例如：lora_merge_20241201_143022.png 或 1_lora_20241201_143022.png")]
+    [HideInInspector]
+    public string fileNameFormat = ""; // 已废弃，保留用于兼容性
+    
     // 事件定义
     public event Action<QueryResultResponse> OnImageGenerated;
     public event Action<string> OnError;
@@ -77,6 +95,9 @@ public class LiblibAPILora : MonoBehaviour
     
     // 当前正在进行的任务
     private Coroutine currentTaskCoroutine;
+    
+    // 当前使用的按钮名称（用于文件名生成）
+    private string currentButtonName = "";
     
     /// <summary>
     /// LoRA模型信息
@@ -90,6 +111,30 @@ public class LiblibAPILora : MonoBehaviour
         [Tooltip("LoRA权重")]
         [Range(0f, 2f)]
         public float weight = 0.3f;
+    }
+    
+    /// <summary>
+    /// 按钮配置信息
+    /// </summary>
+    [Serializable]
+    public class ButtonConfig
+    {
+        [Tooltip("要绑定的按钮（从场景中拖入）")]
+        public Button button;
+        
+        [Tooltip("按钮名称（用于文件名生成，例如：lora_merge、1_lora、2_lora）")]
+        public string buttonName = "";
+        
+        [Tooltip("使用的LoRA数量（0=不使用LoRA，1=使用第1个LoRA，2=使用前2个LoRA，以此类推，最多5个）")]
+        [Range(0, 5)]
+        public int loraCount = 0;
+        
+        [Tooltip("是否使用自定义提示词（如果启用，将使用下面的customPrompt）")]
+        public bool useCustomPrompt = false;
+        
+        [Tooltip("自定义提示词（仅在useCustomPrompt为true时使用）")]
+        [TextArea(3, 10)]
+        public string customPrompt = "";
     }
     
     /// <summary>
@@ -197,6 +242,127 @@ public class LiblibAPILora : MonoBehaviour
     {
         // 从配置中初始化默认值
         InitializeFromConfig();
+        
+        // 绑定按钮事件
+        SetupButtons();
+        
+        // 确保保存文件夹存在
+        if (autoSaveImages)
+        {
+            EnsureSaveFolderExists();
+        }
+    }
+    
+    /// <summary>
+    /// 确保保存文件夹存在
+    /// </summary>
+    private void EnsureSaveFolderExists()
+    {
+        try
+        {
+            string fullPath = GetSaveFolderPath();
+            if (!Directory.Exists(fullPath))
+            {
+                Directory.CreateDirectory(fullPath);
+                if (enableDebugLog)
+                {
+                    Debug.Log($"[LiblibAPILora] 已创建保存文件夹: {fullPath}");
+                }
+            }
+            else if (enableDebugLog)
+            {
+                Debug.Log($"[LiblibAPILora] 保存文件夹已存在: {fullPath}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[LiblibAPILora] 创建保存文件夹失败: {e.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 设置按钮点击事件
+    /// </summary>
+    private void SetupButtons()
+    {
+        if (buttonConfigs == null || buttonConfigs.Length == 0)
+        {
+            return;
+        }
+        
+        for (int i = 0; i < buttonConfigs.Length; i++)
+        {
+            ButtonConfig config = buttonConfigs[i];
+            if (config == null || config.button == null)
+            {
+                continue;
+            }
+            
+            // 创建闭包来捕获当前配置
+            ButtonConfig currentConfig = config;
+            int buttonIndex = i;
+            
+            // 移除之前的监听器（如果有）
+            config.button.onClick.RemoveAllListeners();
+            
+            // 添加新的监听器
+            config.button.onClick.AddListener(() => OnButtonClicked(currentConfig, buttonIndex));
+            
+            if (enableDebugLog)
+            {
+                Debug.Log($"[LiblibAPILora] 已绑定按钮 {buttonIndex}，LoRA数量: {currentConfig.loraCount}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 按钮点击事件处理
+    /// </summary>
+    private void OnButtonClicked(ButtonConfig config, int buttonIndex)
+    {
+        if (enableDebugLog)
+        {
+            Debug.Log($"[LiblibAPILora] 按钮 {buttonIndex} 被点击，使用 {config.loraCount} 个LoRA模型");
+        }
+        
+        // 记录当前使用的按钮名称（用于文件名生成）
+        // 优先使用配置的buttonName，如果没有则使用按钮GameObject的名称，再没有则使用loraCount
+        if (!string.IsNullOrEmpty(config.buttonName))
+        {
+            currentButtonName = config.buttonName;
+        }
+        else if (config.button != null && config.button.gameObject != null)
+        {
+            currentButtonName = config.button.gameObject.name;
+        }
+        else
+        {
+            currentButtonName = $"{config.loraCount}_lora";
+        }
+        
+        // 根据配置的LoRA数量，从loraModels数组中提取相应数量的模型
+        LoraModel[] modelsToUse = null;
+        if (config.loraCount > 0 && loraModels != null && loraModels.Length > 0)
+        {
+            int actualCount = Mathf.Min(config.loraCount, loraModels.Length);
+            modelsToUse = new LoraModel[actualCount];
+            for (int i = 0; i < actualCount; i++)
+            {
+                modelsToUse[i] = loraModels[i];
+            }
+        }
+        
+        // 确定使用的提示词
+        string promptToUse = config.useCustomPrompt && !string.IsNullOrEmpty(config.customPrompt) 
+            ? config.customPrompt 
+            : this.prompt;
+        
+        // 调用生成方法
+        GenerateImageWithLora(
+            prompt: promptToUse,
+            loraModels: modelsToUse,
+            templateUuid: null
+        );
     }
     
     /// <summary>
@@ -204,6 +370,14 @@ public class LiblibAPILora : MonoBehaviour
     /// </summary>
     public void Generate()
     {
+        // 记录当前使用的按钮名称（用于文件名生成）
+        // 如果没有通过按钮调用，使用默认名称
+        if (string.IsNullOrEmpty(currentButtonName))
+        {
+            int loraCount = loraModels != null ? loraModels.Length : 0;
+            currentButtonName = $"{loraCount}_lora";
+        }
+        
         GenerateImageWithLora(
             prompt,
             loraModels,
@@ -521,97 +695,13 @@ public class LiblibAPILora : MonoBehaviour
                 {
                     string responseText = request_web.downloadHandler.text;
                     
+                    QueryResultResponse response = null;
+                    bool parseSuccess = false;
+                    
                     try
                     {
-                        QueryResultResponse response = JsonUtility.FromJson<QueryResultResponse>(responseText);
-                        
-                        // 检查响应码
-                        if (response.code != 0 && response.code != 200)
-                        {
-                            string errorMsg = !string.IsNullOrEmpty(response.msg) ? response.msg : $"API返回错误码: {response.code}";
-                            if (enableDebugLog)
-                            {
-                                Debug.LogWarning($"[LiblibAPILora] 查询失败: {errorMsg}");
-                            }
-                            retryCount++;
-                            continue;
-                        }
-                        
-                        if (response.data == null)
-                        {
-                            if (enableDebugLog)
-                            {
-                                Debug.LogWarning($"[LiblibAPILora] 查询响应中data为空");
-                            }
-                            retryCount++;
-                            continue;
-                        }
-                        
-                        // 使用新的数据模型字段
-                        int generateStatus = response.data.generateStatus;
-                        float percentCompleted = response.data.percentCompleted;
-                        string generateMsg = response.data.generateMsg;
-                        
-                        // 检查是否有图片数据（images是对象数组，需要访问imageUrl属性）
-                        bool hasImages = response.data.images != null && response.data.images.Length > 0 && 
-                                        !string.IsNullOrEmpty(response.data.images[0].imageUrl);
-                        bool hasImageUrl = !string.IsNullOrEmpty(response.data.imageUrl);
-                        
-                        // 判断任务是否完成：generateStatus == 5 或 percentCompleted >= 1.0 或 有图片数据
-                        bool isCompleted = generateStatus == 5 || percentCompleted >= 1.0f || hasImages || hasImageUrl;
-                        
-                        if (enableDebugLog)
-                        {
-                            Debug.Log($"[LiblibAPILora] 查询结果:");
-                            Debug.Log($"  GenerateStatus: {generateStatus} (5=完成)");
-                            Debug.Log($"  PercentCompleted: {percentCompleted * 100:F1}%");
-                            Debug.Log($"  GenerateMsg: {generateMsg}");
-                            Debug.Log($"  HasImages: {hasImages} (Count: {(response.data.images != null ? response.data.images.Length : 0)})");
-                            Debug.Log($"  HasImageUrl: {hasImageUrl}");
-                            Debug.Log($"  IsCompleted: {isCompleted}");
-                            
-                            // 输出完整的响应数据以便调试
-                            if (response.data.images != null && response.data.images.Length > 0)
-                            {
-                                for (int i = 0; i < response.data.images.Length; i++)
-                                {
-                                    Debug.Log($"  图片[{i}]: imageUrl={response.data.images[i].imageUrl}, seed={response.data.images[i].seed}");
-                                }
-                            }
-                            if (!string.IsNullOrEmpty(response.data.imageUrl))
-                            {
-                                Debug.Log($"  图片URL (直接字段): {response.data.imageUrl}");
-                            }
-                            
-                            // 输出完整响应JSON以便调试
-                            Debug.Log($"[LiblibAPILora] 完整响应JSON: {responseText}");
-                        }
-                        
-                        // 如果任务完成（有图片数据或状态为完成）
-                        if (isCompleted)
-                        {
-                            // 生成成功
-                            OnImageGenerated?.Invoke(response);
-                            yield break;
-                        }
-                        else if (generateStatus < 0 || (generateMsg != null && generateMsg.Contains("失败")))
-                        {
-                            // 生成失败
-                            OnError?.Invoke($"图片生成失败: {generateMsg ?? "未知错误"}");
-                            yield break;
-                        }
-                        else
-                        {
-                            // 仍在处理中
-                            string statusMsg = $"处理中... ({percentCompleted * 100:F1}%)";
-                            if (!string.IsNullOrEmpty(generateMsg))
-                            {
-                                statusMsg = $"{generateMsg} ({percentCompleted * 100:F1}%)";
-                            }
-                            OnStatusUpdate?.Invoke(statusMsg);
-                            retryCount++;
-                            continue;
-                        }
+                        response = JsonUtility.FromJson<QueryResultResponse>(responseText);
+                        parseSuccess = true;
                     }
                     catch (Exception e)
                     {
@@ -619,6 +709,106 @@ public class LiblibAPILora : MonoBehaviour
                         {
                             Debug.LogError($"[LiblibAPILora] 解析查询响应失败: {e.Message}");
                         }
+                        retryCount++;
+                        continue;
+                    }
+                    
+                    if (!parseSuccess || response == null)
+                    {
+                        retryCount++;
+                        continue;
+                    }
+                    
+                    // 检查响应码
+                    if (response.code != 0 && response.code != 200)
+                    {
+                        string errorMsg = !string.IsNullOrEmpty(response.msg) ? response.msg : $"API返回错误码: {response.code}";
+                        if (enableDebugLog)
+                        {
+                            Debug.LogWarning($"[LiblibAPILora] 查询失败: {errorMsg}");
+                        }
+                        retryCount++;
+                        continue;
+                    }
+                    
+                    if (response.data == null)
+                    {
+                        if (enableDebugLog)
+                        {
+                            Debug.LogWarning($"[LiblibAPILora] 查询响应中data为空");
+                        }
+                        retryCount++;
+                        continue;
+                    }
+                    
+                    // 使用新的数据模型字段
+                    int generateStatus = response.data.generateStatus;
+                    float percentCompleted = response.data.percentCompleted;
+                    string generateMsg = response.data.generateMsg;
+                    
+                    // 检查是否有图片数据（images是对象数组，需要访问imageUrl属性）
+                    bool hasImages = response.data.images != null && response.data.images.Length > 0 && 
+                                    !string.IsNullOrEmpty(response.data.images[0].imageUrl);
+                    bool hasImageUrl = !string.IsNullOrEmpty(response.data.imageUrl);
+                    
+                    // 判断任务是否完成：generateStatus == 5 或 percentCompleted >= 1.0 或 有图片数据
+                    bool isCompleted = generateStatus == 5 || percentCompleted >= 1.0f || hasImages || hasImageUrl;
+                    
+                    if (enableDebugLog)
+                    {
+                        Debug.Log($"[LiblibAPILora] 查询结果:");
+                        Debug.Log($"  GenerateStatus: {generateStatus} (5=完成)");
+                        Debug.Log($"  PercentCompleted: {percentCompleted * 100:F1}%");
+                        Debug.Log($"  GenerateMsg: {generateMsg}");
+                        Debug.Log($"  HasImages: {hasImages} (Count: {(response.data.images != null ? response.data.images.Length : 0)})");
+                        Debug.Log($"  HasImageUrl: {hasImageUrl}");
+                        Debug.Log($"  IsCompleted: {isCompleted}");
+                        
+                        // 输出完整的响应数据以便调试
+                        if (response.data.images != null && response.data.images.Length > 0)
+                        {
+                            for (int i = 0; i < response.data.images.Length; i++)
+                            {
+                                Debug.Log($"  图片[{i}]: imageUrl={response.data.images[i].imageUrl}, seed={response.data.images[i].seed}");
+                            }
+                        }
+                        if (!string.IsNullOrEmpty(response.data.imageUrl))
+                        {
+                            Debug.Log($"  图片URL (直接字段): {response.data.imageUrl}");
+                        }
+                        
+                        // 输出完整响应JSON以便调试
+                        Debug.Log($"[LiblibAPILora] 完整响应JSON: {responseText}");
+                    }
+                    
+                    // 如果任务完成（有图片数据或状态为完成）
+                    if (isCompleted)
+                    {
+                        // 生成成功，自动下载并保存图片（移到 try-catch 外面）
+                        if (autoSaveImages)
+                        {
+                            yield return StartCoroutine(DownloadAndSaveImages(response));
+                        }
+                        
+                        // 生成成功
+                        OnImageGenerated?.Invoke(response);
+                        yield break;
+                    }
+                    else if (generateStatus < 0 || (generateMsg != null && generateMsg.Contains("失败")))
+                    {
+                        // 生成失败
+                        OnError?.Invoke($"图片生成失败: {generateMsg ?? "未知错误"}");
+                        yield break;
+                    }
+                    else
+                    {
+                        // 仍在处理中
+                        string statusMsg = $"处理中... ({percentCompleted * 100:F1}%)";
+                        if (!string.IsNullOrEmpty(generateMsg))
+                        {
+                            statusMsg = $"{generateMsg} ({percentCompleted * 100:F1}%)";
+                        }
+                        OnStatusUpdate?.Invoke(statusMsg);
                         retryCount++;
                         continue;
                     }
@@ -661,6 +851,226 @@ public class LiblibAPILora : MonoBehaviour
         
         // 达到最大重试次数
         OnError?.Invoke($"查询超时：已达到最大重试次数 ({activeConfig.maxRetryCount})");
+    }
+    
+    /// <summary>
+    /// 下载并保存所有图片
+    /// </summary>
+    private IEnumerator DownloadAndSaveImages(QueryResultResponse response)
+    {
+        if (response.data == null)
+        {
+            if (enableDebugLog)
+            {
+                Debug.LogWarning("[LiblibAPILora] 响应数据为空，无法保存图片");
+            }
+            yield break;
+        }
+        
+        // 收集所有图片URL
+        System.Collections.Generic.List<string> imageUrls = new System.Collections.Generic.List<string>();
+        System.Collections.Generic.List<long> seeds = new System.Collections.Generic.List<long>();
+        
+        // 优先从images数组获取
+        if (response.data.images != null && response.data.images.Length > 0)
+        {
+            for (int i = 0; i < response.data.images.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(response.data.images[i].imageUrl))
+                {
+                    imageUrls.Add(response.data.images[i].imageUrl);
+                    seeds.Add(response.data.images[i].seed);
+                }
+            }
+        }
+        // 如果没有images数组，尝试从imageUrl字段获取
+        else if (!string.IsNullOrEmpty(response.data.imageUrl))
+        {
+            imageUrls.Add(response.data.imageUrl);
+            seeds.Add(0); // 如果没有seed信息，使用0
+        }
+        
+        if (imageUrls.Count == 0)
+        {
+            if (enableDebugLog)
+            {
+                Debug.LogWarning("[LiblibAPILora] 未找到图片URL，无法保存");
+            }
+            yield break;
+        }
+        
+        // 确保保存文件夹存在
+        string fullPath = GetSaveFolderPath();
+        if (!Directory.Exists(fullPath))
+        {
+            try
+            {
+                Directory.CreateDirectory(fullPath);
+                if (enableDebugLog)
+                {
+                    Debug.Log($"[LiblibAPILora] 创建保存文件夹: {fullPath}");
+                }
+            }
+            catch (Exception e)
+            {
+                OnError?.Invoke($"创建保存文件夹失败: {e.Message}");
+                yield break;
+            }
+        }
+        
+        // 下载并保存每张图片
+        for (int i = 0; i < imageUrls.Count; i++)
+        {
+            string imageUrl = imageUrls[i];
+            long seed = seeds[i];
+            
+            yield return StartCoroutine(DownloadAndSaveSingleImage(
+                imageUrl, 
+                seed, 
+                i, 
+                imageUrls.Count > 1
+            ));
+        }
+    }
+    
+    /// <summary>
+    /// 下载并保存单张图片
+    /// </summary>
+    private IEnumerator DownloadAndSaveSingleImage(string imageUrl, long seed, int imageIndex, bool isMultiple)
+    {
+        if (enableDebugLog)
+        {
+            Debug.Log($"[LiblibAPILora] 开始下载并保存图片 {imageIndex + 1}: {imageUrl}");
+        }
+        
+        using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(imageUrl))
+        {
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Texture2D texture = DownloadHandlerTexture.GetContent(request);
+                
+                // 生成文件名
+                string fileName = GenerateFileName(seed, imageIndex, isMultiple);
+                string fullPath = Path.Combine(GetSaveFolderPath(), fileName);
+                
+                // 保存图片为PNG格式
+                try
+                {
+                    byte[] pngData = texture.EncodeToPNG();
+                    File.WriteAllBytes(fullPath, pngData);
+                    
+                    if (enableDebugLog)
+                    {
+                        Debug.Log($"[LiblibAPILora] 图片已保存: {fullPath}");
+                    }
+                    
+                    OnStatusUpdate?.Invoke($"图片已保存: {fileName}");
+                }
+                catch (Exception e)
+                {
+                    string errorMsg = $"保存图片失败: {e.Message}";
+                    if (enableDebugLog)
+                    {
+                        Debug.LogError($"[LiblibAPILora] {errorMsg}");
+                    }
+                    OnError?.Invoke(errorMsg);
+                }
+            }
+            else
+            {
+                string errorMsg = $"下载图片失败: {request.error}";
+                if (enableDebugLog)
+                {
+                    Debug.LogError($"[LiblibAPILora] {errorMsg}");
+                }
+                OnError?.Invoke(errorMsg);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 生成文件名
+    /// </summary>
+    private string GenerateFileName(long seed, int imageIndex, bool isMultiple)
+    {
+        // 生成时间戳（格式：yyyyMMdd_HHmmss）
+        string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        
+        // 获取按钮名称，如果没有则使用默认值
+        string buttonName = currentButtonName;
+        if (string.IsNullOrEmpty(buttonName))
+        {
+            buttonName = "image";
+        }
+        
+        // 文件名格式：{buttonName}_{timestamp}
+        string fileName = $"{buttonName}_{timestamp}";
+        
+        // 如果是多张图片，添加索引
+        if (isMultiple)
+        {
+            fileName = $"{fileName}_{imageIndex + 1}";
+        }
+        
+        // 确保文件名以.png结尾
+        if (!fileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName += ".png";
+        }
+        
+        // 清理文件名（移除可能的非法字符）
+        fileName = SanitizeFileName(fileName);
+        
+        return fileName;
+    }
+    
+    /// <summary>
+    /// 清理文件名中的非法字符
+    /// </summary>
+    private string SanitizeFileName(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName))
+        {
+            return "Image";
+        }
+        
+        // 移除Windows文件名中不允许的字符
+        string invalidChars = new string(Path.GetInvalidFileNameChars());
+        string pattern = "[" + Regex.Escape(invalidChars) + "]";
+        fileName = Regex.Replace(fileName, pattern, "_");
+        
+        // 移除多余的下划线和空格
+        fileName = Regex.Replace(fileName, @"_{2,}", "_");
+        fileName = fileName.Trim('_', ' ');
+        
+        // 如果文件名为空，使用默认名称
+        if (string.IsNullOrEmpty(fileName))
+        {
+            fileName = "Image";
+        }
+        
+        return fileName;
+    }
+    
+    /// <summary>
+    /// 获取保存文件夹的完整路径
+    /// </summary>
+    private string GetSaveFolderPath()
+    {
+        // 如果路径是绝对路径，直接返回
+        if (Path.IsPathRooted(saveFolderPath))
+        {
+            return saveFolderPath;
+        }
+        
+        // 否则，相对于项目根目录
+        string projectRoot = Application.dataPath;
+        // Application.dataPath 指向 Assets 文件夹，需要返回上一级
+        projectRoot = Directory.GetParent(projectRoot).FullName;
+        
+        return Path.Combine(projectRoot, saveFolderPath);
     }
     
     /// <summary>
@@ -837,6 +1247,12 @@ public class LiblibAPILora : MonoBehaviour
                             // 如果有图片，触发成功事件
                             if (isCompleted)
                             {
+                                // 自动下载并保存图片
+                                if (autoSaveImages)
+                                {
+                                    StartCoroutine(DownloadAndSaveImages(response));
+                                }
+                                
                                 OnImageGenerated?.Invoke(response);
                             }
                             else if (generateStatus < 0 || (generateMsg != null && generateMsg.Contains("失败")))
