@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56d14e8a80abdc443adf0f4519f09ada, type: 3}
   m_Name: LiblibAPIConfig
   m_EditorClassIdentifier: 
-  accessKey: ybgsJ3-CJYtiJJptA70lWg
-  secretKey: c1Z1wIj15LvZgSUjf4Q0raIlFU5TXYD2
+  accessKey: 
+  secretKey:
   apiBaseUrl: https://openapi.liblibai.cloud
   templateUuid: 5d7e67009b344550bc1aa6ccbfa1d7f4
   defaultWidth: 512

@@ -75,3 +75,7 @@ crashlytics-build.properties
 ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json
 Assets/JP_School corridor_V2/Scenes/School_Corridor/LightingData.asset
 Assets/JP_School corridor_V2/Scenes/School_Corridor/LightingData.asset.meta
+
+# Liblib API 配置文件（包含敏感信息）
+Assets/Scenes/*APIConfig.asset
+Assets/Scenes/*LoraConfig.asset

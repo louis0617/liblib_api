@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7f8bff596d220e499fafe15a15997b5, type: 3}
   m_Name: LiblibAPILoraConfig
   m_EditorClassIdentifier: 
-  accessKey: ybgsJ3-CJYtiJJptA70lWg
-  secretKey: c1Z1wIj15LvZgSUjf4Q0raIlFU5TXYD2
+  accessKey: 
+  secretKey:
   apiBaseUrl: https://openapi.liblibai.cloud
   templateUuid: 6f7c4652458d4802969f8d089cf5b91f
   defaultCheckPointId: 412b427ddb674b4dbab9e5abd5ae6057
